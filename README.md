@@ -1,35 +1,37 @@
-# 📚 Discord Study Tracker Bot
 
-A Discord bot that automatically tracks study time using voice channels.
+# Discord Study Tracker Bot
 
-## ✨ Features
+A Discord bot that automatically tracks study time through voice channels.
 
-- 🎧 Automatic voice channel tracking
-- 📊 `/stats` command
-- ⏱️ Daily study time
-- 📅 Weekly study time
-- 🗓️ Monthly study time
-- 🏆 Lifetime study time
+## Features
 
-## 🛠️ Tech Stack
+- 🎧 Automatic Voice Tracking
+- 📊 Study Statistics
+- 👤 User Profile
+- 🏆 Leaderboard
+- 🎯 Daily Goals
+- 📅 Attendance Tracking
+- 🔥 Study Streak
+- 💾 SQLite Database
+
+## Commands
+
+- `/stats`
+- `/profile`
+- `/leaderboard`
+- `/goal`
+- `/mygoal`
+- `/attendance`
+- `/streak`
+
+## Tech Stack
 
 - TypeScript
-- Discord.js v14
 - Node.js
+- Discord.js
+- SQLite
 
-## 🚀 Installation
 
-```bash
-npm install
-npm run dev
-```
-
-## 📌 Commands
-
-| Command | Description |
-|---------|-------------|
-| `/stats` | Shows your study statistics |
-
-## 👨‍💻 Author
+## Author
 
 Ashish Singh
