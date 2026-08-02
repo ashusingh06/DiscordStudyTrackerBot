@@ -1,16 +1,5 @@
 import { ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
-import fs from "fs";
-import path from "path";
-
-interface CompletedSession {
-  userId: string;
-  username: string;
-  joinedAt: string;
-  endedAt: string;
-  duration: number;
-  channelId?: string | undefined;
-  channelName?: string | undefined;
-}
+import { getAllSessions, CompletedSession } from "../database/database";
 
 interface ProfileStats {
   username: string;
@@ -43,75 +32,6 @@ function createNoDataEmbed(): EmbedBuilder {
     .setTitle("📚 Study Profile")
     .setDescription("No study sessions found.\nJoin a study voice channel to begin tracking.")
     .setTimestamp();
-}
-
-function parseStudyData(fileContent: string): CompletedSession[] {
-  const parsed = JSON.parse(fileContent);
-  const sessionsList: CompletedSession[] = [];
-
-  if (Array.isArray(parsed)) {
-    for (const item of parsed) {
-      if (
-        item &&
-        typeof item === "object" &&
-        typeof item.userId === "string" &&
-        typeof item.username === "string" &&
-        typeof item.duration === "number"
-      ) {
-        sessionsList.push({
-          userId: item.userId,
-          username: item.username,
-          joinedAt: typeof item.joinedAt === "string" ? item.joinedAt : new Date().toISOString(),
-          endedAt: typeof item.endedAt === "string" ? item.endedAt : new Date().toISOString(),
-          duration: item.duration,
-          channelId: typeof item.channelId === "string" ? item.channelId : undefined,
-          channelName: typeof item.channelName === "string" ? item.channelName : undefined
-        });
-      }
-    }
-  } else if (parsed && typeof parsed === "object") {
-    for (const [userId, entry] of Object.entries(parsed)) {
-      if (!entry) continue;
-
-      if (Array.isArray(entry)) {
-        for (const item of entry) {
-          if (item && typeof item === "object" && typeof item.duration === "number") {
-            sessionsList.push({
-              userId: userId,
-              username: typeof item.username === "string" ? item.username : "Unknown User",
-              joinedAt: typeof item.joinedAt === "string" ? item.joinedAt : new Date().toISOString(),
-              endedAt: typeof item.endedAt === "string" ? item.endedAt : new Date().toISOString(),
-              duration: item.duration,
-              channelId: typeof item.channelId === "string" ? item.channelId : undefined,
-              channelName: typeof item.channelName === "string" ? item.channelName : undefined
-            });
-          }
-        }
-      } else if (typeof entry === "object") {
-        const entryObj = entry as Record<string, unknown>;
-        const username = typeof entryObj.username === "string" ? entryObj.username : "Unknown User";
-        const sessions = entryObj.sessions;
-        if (Array.isArray(sessions)) {
-          for (const item of sessions) {
-            if (item && typeof item === "object" && typeof item.duration === "number") {
-              const itemObj = item as Record<string, unknown>;
-              sessionsList.push({
-                userId: userId,
-                username: typeof itemObj.username === "string" ? itemObj.username : username,
-                joinedAt: typeof itemObj.joinedAt === "string" ? itemObj.joinedAt : new Date().toISOString(),
-                endedAt: typeof itemObj.endedAt === "string" ? itemObj.endedAt : new Date().toISOString(),
-                duration: item.duration,
-                channelId: typeof itemObj.channelId === "string" ? itemObj.channelId : undefined,
-                channelName: typeof itemObj.channelName === "string" ? itemObj.channelName : undefined
-              });
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return sessionsList;
 }
 
 function calculateProfileStats(userSessions: CompletedSession[]): ProfileStats {
@@ -186,7 +106,7 @@ function calculateProfileStats(userSessions: CompletedSession[]): ProfileStats {
     avgSessionDuration,
     favoriteChannel,
     firstStudyDate,
-    lastStudyDate
+    lastStudyDate,
   };
 }
 
@@ -198,7 +118,7 @@ function calculateUserRank(allSessions: CompletedSession[], targetUserId: string
 
   const sortedList = Array.from(userMap.entries()).map(([userId, duration]) => ({
     userId,
-    duration
+    duration,
   }));
 
   sortedList.sort((a, b) => b.duration - a.duration);
@@ -222,22 +142,16 @@ function calculateUserRank(allSessions: CompletedSession[], targetUserId: string
 
   return {
     rank: targetRank,
-    totalUsers: sortedList.length
+    totalUsers: sortedList.length,
   };
 }
 
 async function execute(interaction: ChatInputCommandInteraction) {
   const userId = interaction.user.id;
-  const dataPath = path.join(process.cwd(), "study-data.json");
-
-  if (!fs.existsSync(dataPath)) {
-    return interaction.reply({ embeds: [createNoDataEmbed()] });
-  }
 
   try {
-    const fileContent = fs.readFileSync(dataPath, "utf-8");
-    const allSessions = parseStudyData(fileContent);
-    const userSessions = allSessions.filter(s => s.userId === userId);
+    const allSessions = await getAllSessions();
+    const userSessions = allSessions.filter((s) => s.userId === userId);
 
     if (userSessions.length === 0) {
       return interaction.reply({ embeds: [createNoDataEmbed()] });
@@ -272,7 +186,7 @@ async function execute(interaction: ChatInputCommandInteraction) {
     const corruptEmbed = new EmbedBuilder()
       .setColor(0xED4245)
       .setTitle("⚠️ Profile Error")
-      .setDescription("Could not load profile. The study database file might be corrupted.")
+      .setDescription("Could not load profile.")
       .setTimestamp();
     return interaction.reply({ embeds: [corruptEmbed], ephemeral: true });
   }
@@ -281,5 +195,5 @@ async function execute(interaction: ChatInputCommandInteraction) {
 export default {
   name: "profile",
   description: "View your study profile and detailed stats",
-  execute
+  execute,
 };

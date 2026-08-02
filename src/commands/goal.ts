@@ -1,14 +1,5 @@
 import { ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
-import fs from "fs";
-import path from "path";
-
-interface GoalEntry {
-  goalHours: number;
-}
-
-interface GoalData {
-  [userId: string]: GoalEntry;
-}
+import { setUserGoal } from "../database/database";
 
 async function execute(interaction: ChatInputCommandInteraction) {
   const userId = interaction.user.id;
@@ -21,29 +12,9 @@ async function execute(interaction: ChatInputCommandInteraction) {
     });
   }
 
-  const dataPath = path.join(process.cwd(), "goal-data.json");
-  let goalData: GoalData = {};
-
-  if (fs.existsSync(dataPath)) {
-    try {
-      const fileContent = fs.readFileSync(dataPath, "utf-8");
-      const parsed = JSON.parse(fileContent);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        goalData = parsed as GoalData;
-      }
-    } catch (error) {
-      console.error("Error reading goal-data.json:", error);
-      goalData = {};
-    }
-  }
-
-  goalData[userId] = {
-    goalHours: hours,
-  };
-
   try {
-    fs.writeFileSync(dataPath, JSON.stringify(goalData, null, 2), "utf-8");
-    
+    await setUserGoal(userId, hours);
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle("🎯 Daily Goal Set")
@@ -53,7 +24,7 @@ async function execute(interaction: ChatInputCommandInteraction) {
 
     return interaction.reply({ embeds: [embed] });
   } catch (error) {
-    console.error("Error writing to goal-data.json:", error);
+    console.error("Error setting user goal:", error);
     return interaction.reply({
       content: "⚠️ An error occurred while saving your daily goal.",
       ephemeral: true,

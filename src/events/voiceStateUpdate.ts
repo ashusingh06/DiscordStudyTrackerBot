@@ -1,12 +1,10 @@
 import { VoiceState } from "discord.js";
 import type { StudySession } from "../models/StudySession";
-import * as fs from "fs";
-import * as path from "path";
+import { saveStudySession } from "../database/database";
 
 const activeSessions = new Map<string, StudySession>();
-const dataPath = path.join(process.cwd(), "study-data.json");
 
-export default function voiceStateUpdate(
+export default async function voiceStateUpdate(
   oldState: VoiceState,
   newState: VoiceState
 ) {
@@ -34,7 +32,6 @@ export default function voiceStateUpdate(
   // ==========================
   // User Left Voice Channel
   // ==========================
-  
   if (oldState.channel && !newState.channel) {
     const session = activeSessions.get(member.id);
 
@@ -53,44 +50,15 @@ export default function voiceStateUpdate(
       `📚 ${member.user.username} studied for ${hours}h ${minutes}m ${seconds}s`
     );
 
-    // Save study session to study-data.json
-    const sessionRecord = {
+    await saveStudySession({
       userId: session.userId,
       username: session.username,
+      channelId: session.channelId,
+      channelName: session.channelName,
       joinedAt: session.joinedAt.toISOString(),
       endedAt: endedAt.toISOString(),
       duration: duration,
-    };
-
-    let data: any = {};
-
-    if (fs.existsSync(dataPath)) {
-      try {
-        const fileContent = fs.readFileSync(dataPath, "utf-8");
-        data = JSON.parse(fileContent);
-        if (typeof data !== "object" || data === null) {
-          data = {};
-        }
-      } catch (error) {
-        console.error("Error reading or parsing study-data.json:", error);
-        data = {};
-      }
-    }
-
-    if (Array.isArray(data)) {
-      data.push(sessionRecord);
-    } else {
-      if (!data[session.userId]) {
-        data[session.userId] = [];
-      }
-      data[session.userId].push(sessionRecord);
-    }
-
-    try {
-      fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), "utf-8");
-    } catch (error) {
-      console.error("Error writing to study-data.json:", error);
-    }
+    });
 
     activeSessions.delete(member.id);
   }

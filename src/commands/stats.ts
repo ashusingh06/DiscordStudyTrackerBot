@@ -1,52 +1,20 @@
 import { ChatInputCommandInteraction, EmbedBuilder } from "discord.js";
-import fs from "fs";
-import path from "path";
-
-interface SessionRecord {
-  userId?: string;
-  joinedAt: string | Date;
-  endedAt: string | Date;
-  duration: number;
-}
+import { getUserSessions } from "../database/database";
 
 async function execute(interaction: ChatInputCommandInteraction) {
   const userId = interaction.user.id;
   const username = interaction.user.username;
 
-  const dataPath = path.join(process.cwd(), "study-data.json");
-  
-  if (!fs.existsSync(dataPath)) {
-    return interaction.reply({
-      content: "No study sessions found.",
-      ephemeral: true
-    });
-  }
-
   try {
-    const fileContent = fs.readFileSync(dataPath, "utf-8");
-    const parsedData = JSON.parse(fileContent);
-
-    let userSessions: SessionRecord[] = [];
-
-    if (Array.isArray(parsedData)) {
-      userSessions = parsedData.filter((s: any) => s.userId === userId);
-    } else if (typeof parsedData === "object" && parsedData !== null) {
-      const userEntry = parsedData[userId];
-      if (Array.isArray(userEntry)) {
-        userSessions = userEntry;
-      } else if (userEntry && Array.isArray(userEntry.sessions)) {
-        userSessions = userEntry.sessions;
-      }
-    }
+    const userSessions = await getUserSessions(userId);
 
     if (userSessions.length === 0) {
       return interaction.reply({
         content: "No study sessions found.",
-        ephemeral: true
+        ephemeral: true,
       });
     }
 
-    // Calculate today, week, month, lifetime
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const startOfWeek = now.getTime() - 7 * 24 * 60 * 60 * 1000;
@@ -62,18 +30,11 @@ async function execute(interaction: ChatInputCommandInteraction) {
       if (isNaN(endedTime)) continue;
 
       const duration = session.duration || 0;
-
       lifetimeSeconds += duration;
 
-      if (endedTime >= startOfToday) {
-        todaySeconds += duration;
-      }
-      if (endedTime >= startOfWeek) {
-        weekSeconds += duration;
-      }
-      if (endedTime >= startOfMonth) {
-        monthSeconds += duration;
-      }
+      if (endedTime >= startOfToday) todaySeconds += duration;
+      if (endedTime >= startOfWeek) weekSeconds += duration;
+      if (endedTime >= startOfMonth) monthSeconds += duration;
     }
 
     const formatDuration = (sec: number) => {
@@ -98,10 +59,10 @@ async function execute(interaction: ChatInputCommandInteraction) {
 
     return interaction.reply({ embeds: [embed] });
   } catch (error) {
-    console.error("Error reading study-data.json:", error);
+    console.error("Error executing stats command:", error);
     return interaction.reply({
       content: "An error occurred while retrieving your study statistics.",
-      ephemeral: true
+      ephemeral: true,
     });
   }
 }
@@ -109,5 +70,5 @@ async function execute(interaction: ChatInputCommandInteraction) {
 export default {
   name: "stats",
   description: "View study statistics",
-  execute
+  execute,
 };

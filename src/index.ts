@@ -6,6 +6,9 @@ import leaderboardCommand from "./commands/leaderboard";
 import profileCommand from "./commands/profile";
 import goalCommand from "./commands/goal";
 import mygoalCommand from "./commands/mygoal";
+import attendanceCommand from "./commands/attendance";
+import streakCommand from "./commands/streak";
+import { initDatabase } from "./database/database";
 dotenv.config();
 
 const client = new Client({
@@ -107,10 +110,46 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
     }
+  } else if (interaction.commandName === attendanceCommand.name) {
+    try {
+      await attendanceCommand.execute(interaction);
+    } catch (error) {
+      console.error("Error executing command:", error);
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: "There was an error executing this command.",
+          ephemeral: true,
+        });
+      } else {
+        await interaction.reply({
+          content: "There was an error executing this command.",
+          ephemeral: true,
+        });
+      }
+    }
+  } else if (interaction.commandName === streakCommand.name) {
+    try {
+      await streakCommand.execute(interaction);
+    } catch (error) {
+      console.error("Error executing command:", error);
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: "There was an error executing this command.",
+          ephemeral: true,
+        });
+      } else {
+        await interaction.reply({
+          content: "There was an error executing this command.",
+          ephemeral: true,
+        });
+      }
+    }
   }
 });
 
 client.once("clientReady", async () => {
+  await initDatabase();
+
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log(`✅ Logged in as ${client.user?.tag}`);
   console.log("🚀 Study Tracker Bot is Online");
@@ -138,6 +177,14 @@ client.once("clientReady", async () => {
       {
         name: mygoalCommand.name,
         description: mygoalCommand.description,
+      },
+      {
+        name: attendanceCommand.name,
+        description: attendanceCommand.description,
+      },
+      {
+        name: streakCommand.name,
+        description: streakCommand.description,
       },
     ];
 
