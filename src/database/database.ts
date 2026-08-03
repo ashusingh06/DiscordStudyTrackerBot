@@ -1,4 +1,4 @@
-import sqlite3 from "sqlite3";
+import { createClient } from "@libsql/client";
 import path from "path";
 import fs from "fs";
 
@@ -13,42 +13,21 @@ export interface CompletedSession {
   duration: number;
 }
 
-const dbPath = path.join(process.cwd(), "study.db");
-const db = new sqlite3.Database(dbPath);
+const url = process.env.TURSO_DATABASE_URL || "file:study.db";
 
-function runAsync(sql: string, params: unknown[] = []): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
+const config: { url: string; authToken?: string } = { url };
+if (process.env.TURSO_AUTH_TOKEN) {
+  config.authToken = process.env.TURSO_AUTH_TOKEN;
 }
 
-function allAsync<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows as T[]);
-    });
-  });
-}
-
-function getAsync<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row as T | undefined);
-    });
-  });
-}
+const db = createClient(config);
 
 /**
- * Initializes the SQLite database tables and triggers JSON migration if needed.
+ * Initializes the database tables and triggers JSON migration if needed.
  */
 export async function initDatabase(): Promise<void> {
   try {
-    await runAsync(`
+    await db.execute(`
       CREATE TABLE IF NOT EXISTS study_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT,
@@ -61,7 +40,7 @@ export async function initDatabase(): Promise<void> {
       )
     `);
 
-    await runAsync(`
+    await db.execute(`
       CREATE TABLE IF NOT EXISTS user_goals (
         user_id TEXT PRIMARY KEY,
         goal_hours INTEGER
@@ -75,7 +54,7 @@ export async function initDatabase(): Promise<void> {
 }
 
 /**
- * Saves a completed study session to SQLite.
+ * Saves a completed study session to Turso / LibSQL.
  */
 export async function saveStudySession(session: {
   userId: string;
@@ -87,10 +66,10 @@ export async function saveStudySession(session: {
   duration: number;
 }): Promise<void> {
   try {
-    await runAsync(
-      `INSERT INTO study_sessions (user_id, username, channel_id, channel_name, joined_at, ended_at, duration)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
+    await db.execute({
+      sql: `INSERT INTO study_sessions (user_id, username, channel_id, channel_name, joined_at, ended_at, duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [
         session.userId,
         session.username,
         session.channelId ?? null,
@@ -98,8 +77,8 @@ export async function saveStudySession(session: {
         session.joinedAt,
         session.endedAt,
         session.duration,
-      ]
-    );
+      ],
+    });
   } catch (error) {
     console.error("Error saving study session to database:", error);
   }
@@ -110,31 +89,26 @@ export async function saveStudySession(session: {
  */
 export async function getUserSessions(userId: string): Promise<CompletedSession[]> {
   try {
-    const rows = await allAsync<{
-      id: number;
-      user_id: string;
-      username: string;
-      channel_id: string | null;
-      channel_name: string | null;
-      joined_at: string;
-      ended_at: string;
-      duration: number;
-    }>(
-      `SELECT * FROM study_sessions WHERE user_id = ? ORDER BY joined_at ASC`,
-      [userId]
-    );
+    const result = await db.execute({
+      sql: `SELECT * FROM study_sessions WHERE user_id = ? ORDER BY joined_at ASC`,
+      args: [userId],
+    });
 
-    return rows.map((row) => {
+    return result.rows.map((row) => {
       const session: CompletedSession = {
-        id: row.id,
-        userId: row.user_id,
-        username: row.username,
-        joinedAt: row.joined_at,
-        endedAt: row.ended_at,
-        duration: row.duration,
+        id: Number(row.id),
+        userId: String(row.user_id),
+        username: String(row.username),
+        joinedAt: String(row.joined_at),
+        endedAt: String(row.ended_at),
+        duration: Number(row.duration),
       };
-      if (row.channel_id) session.channelId = row.channel_id;
-      if (row.channel_name) session.channelName = row.channel_name;
+      if (row.channel_id && typeof row.channel_id === "string") {
+        session.channelId = row.channel_id;
+      }
+      if (row.channel_name && typeof row.channel_name === "string") {
+        session.channelName = row.channel_name;
+      }
       return session;
     });
   } catch (error) {
@@ -148,28 +122,23 @@ export async function getUserSessions(userId: string): Promise<CompletedSession[
  */
 export async function getAllSessions(): Promise<CompletedSession[]> {
   try {
-    const rows = await allAsync<{
-      id: number;
-      user_id: string;
-      username: string;
-      channel_id: string | null;
-      channel_name: string | null;
-      joined_at: string;
-      ended_at: string;
-      duration: number;
-    }>(`SELECT * FROM study_sessions ORDER BY joined_at ASC`);
+    const result = await db.execute(`SELECT * FROM study_sessions ORDER BY joined_at ASC`);
 
-    return rows.map((row) => {
+    return result.rows.map((row) => {
       const session: CompletedSession = {
-        id: row.id,
-        userId: row.user_id,
-        username: row.username,
-        joinedAt: row.joined_at,
-        endedAt: row.ended_at,
-        duration: row.duration,
+        id: Number(row.id),
+        userId: String(row.user_id),
+        username: String(row.username),
+        joinedAt: String(row.joined_at),
+        endedAt: String(row.ended_at),
+        duration: Number(row.duration),
       };
-      if (row.channel_id) session.channelId = row.channel_id;
-      if (row.channel_name) session.channelName = row.channel_name;
+      if (row.channel_id && typeof row.channel_id === "string") {
+        session.channelId = row.channel_id;
+      }
+      if (row.channel_name && typeof row.channel_name === "string") {
+        session.channelName = row.channel_name;
+      }
       return session;
     });
   } catch (error) {
@@ -183,12 +152,12 @@ export async function getAllSessions(): Promise<CompletedSession[]> {
  */
 export async function setUserGoal(userId: string, goalHours: number): Promise<void> {
   try {
-    await runAsync(
-      `INSERT INTO user_goals (user_id, goal_hours)
-       VALUES (?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET goal_hours = excluded.goal_hours`,
-      [userId, goalHours]
-    );
+    await db.execute({
+      sql: `INSERT INTO user_goals (user_id, goal_hours)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET goal_hours = excluded.goal_hours`,
+      args: [userId, goalHours],
+    });
   } catch (error) {
     console.error("Error setting user goal:", error);
   }
@@ -199,11 +168,14 @@ export async function setUserGoal(userId: string, goalHours: number): Promise<vo
  */
 export async function getUserGoal(userId: string): Promise<number | null> {
   try {
-    const row = await getAsync<{ user_id: string; goal_hours: number }>(
-      `SELECT goal_hours FROM user_goals WHERE user_id = ?`,
-      [userId]
-    );
-    return row ? row.goal_hours : null;
+    const result = await db.execute({
+      sql: `SELECT goal_hours FROM user_goals WHERE user_id = ?`,
+      args: [userId],
+    });
+    if (result.rows.length > 0 && result.rows[0] && result.rows[0].goal_hours !== null && result.rows[0].goal_hours !== undefined) {
+      return Number(result.rows[0].goal_hours);
+    }
+    return null;
   } catch (error) {
     console.error("Error getting user goal:", error);
     return null;
@@ -211,16 +183,16 @@ export async function getUserGoal(userId: string): Promise<number | null> {
 }
 
 /**
- * Automatically migrates existing JSON files into SQLite database on first startup.
+ * Automatically migrates existing JSON files into database on first startup.
  */
-async function migrateJsonDataIfNeeded(): Promise<void> {
+export async function migrateJsonDataIfNeeded(): Promise<void> {
   const studyJsonPath = path.join(process.cwd(), "study-data.json");
   const goalJsonPath = path.join(process.cwd(), "goal-data.json");
 
   // Migrate study-data.json
   if (fs.existsSync(studyJsonPath)) {
     try {
-      console.log("🔄 Migrating study-data.json to SQLite database...");
+      console.log("🔄 Migrating study-data.json to Turso database...");
       const fileContent = fs.readFileSync(studyJsonPath, "utf-8");
       const parsed = JSON.parse(fileContent);
       const sessionsToInsert: CompletedSession[] = [];
@@ -303,7 +275,7 @@ async function migrateJsonDataIfNeeded(): Promise<void> {
   // Migrate goal-data.json
   if (fs.existsSync(goalJsonPath)) {
     try {
-      console.log("🔄 Migrating goal-data.json to SQLite database...");
+      console.log("🔄 Migrating goal-data.json to Turso database...");
       const fileContent = fs.readFileSync(goalJsonPath, "utf-8");
       const parsed = JSON.parse(fileContent);
 
