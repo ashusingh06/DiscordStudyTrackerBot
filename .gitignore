@@ -2,3 +2,4 @@ node_modules/
 dist/
 .env
 study-data.json
+PROJECT_DOCUMENTATION.md
