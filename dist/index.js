@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const discord_js_1 = require("discord.js");
 const dotenv_1 = __importDefault(require("dotenv"));
+const express_1 = __importDefault(require("express"));
 const voiceStateUpdate_1 = __importDefault(require("./events/voiceStateUpdate"));
 const stats_1 = __importDefault(require("./commands/stats"));
 const leaderboard_1 = __importDefault(require("./commands/leaderboard"));
@@ -15,6 +16,16 @@ const attendance_1 = __importDefault(require("./commands/attendance"));
 const streak_1 = __importDefault(require("./commands/streak"));
 const database_1 = require("./database/database");
 dotenv_1.default.config();
+/* -------------------- Render Health Server -------------------- */
+const app = (0, express_1.default)();
+const PORT = process.env.PORT || 3000;
+app.get("/", (_, res) => {
+    res.send("Study Tracker Bot is running!");
+});
+app.listen(PORT, () => {
+    console.log(`🌐 Health server running on port ${PORT}`);
+});
+/* -------------------------------------------------------------- */
 const client = new discord_js_1.Client({
     intents: [
         discord_js_1.GatewayIntentBits.Guilds,
@@ -28,144 +39,44 @@ client.on("voiceStateUpdate", voiceStateUpdate_1.default);
 client.on("interactionCreate", async (interaction) => {
     if (!interaction.isChatInputCommand())
         return;
-    if (interaction.commandName === stats_1.default.name) {
-        try {
-            await stats_1.default.execute(interaction);
-        }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-        }
-    }
-    else if (interaction.commandName === leaderboard_1.default.name) {
-        try {
-            await leaderboard_1.default.execute(interaction);
-        }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
+    try {
+        switch (interaction.commandName) {
+            case stats_1.default.name:
+                await stats_1.default.execute(interaction);
+                break;
+            case leaderboard_1.default.name:
+                await leaderboard_1.default.execute(interaction);
+                break;
+            case profile_1.default.name:
+                await profile_1.default.execute(interaction);
+                break;
+            case goal_1.default.name:
+                await goal_1.default.execute(interaction);
+                break;
+            case mygoal_1.default.name:
+                await mygoal_1.default.execute(interaction);
+                break;
+            case attendance_1.default.name:
+                await attendance_1.default.execute(interaction);
+                break;
+            case streak_1.default.name:
+                await streak_1.default.execute(interaction);
+                break;
         }
     }
-    else if (interaction.commandName === profile_1.default.name) {
-        try {
-            await profile_1.default.execute(interaction);
+    catch (error) {
+        console.error("Error executing command:", error);
+        if (interaction.replied || interaction.deferred) {
+            await interaction.followUp({
+                content: "There was an error executing this command.",
+                ephemeral: true,
+            });
         }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-        }
-    }
-    else if (interaction.commandName === goal_1.default.name) {
-        try {
-            await goal_1.default.execute(interaction);
-        }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-        }
-    }
-    else if (interaction.commandName === mygoal_1.default.name) {
-        try {
-            await mygoal_1.default.execute(interaction);
-        }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-        }
-    }
-    else if (interaction.commandName === attendance_1.default.name) {
-        try {
-            await attendance_1.default.execute(interaction);
-        }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-        }
-    }
-    else if (interaction.commandName === streak_1.default.name) {
-        try {
-            await streak_1.default.execute(interaction);
-        }
-        catch (error) {
-            console.error("Error executing command:", error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
-            else {
-                await interaction.reply({
-                    content: "There was an error executing this command.",
-                    ephemeral: true,
-                });
-            }
+        else {
+            await interaction.reply({
+                content: "There was an error executing this command.",
+                ephemeral: true,
+            });
         }
     }
 });
